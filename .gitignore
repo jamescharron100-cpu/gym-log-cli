@@ -1,0 +1,9 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Local workout data
+data/gym_data.json
+
+# macOS junk
+.DS_Store
