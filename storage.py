@@ -28,34 +28,55 @@ def set_environment(data_folder: str, data_file: str) -> Path:
 
 
 def load_data(file_path: Path):
-    """Load workout data from disk and validate its structure.
-    Returns a dictionary shaped like:
-    {exercise: [{"date": "YYYY-MM-DD", "weight": number}, ...]}
-    If the file is not found or malformed, an empty dict is returned instead."""
+    """
+    Load workout data from disk and validate structure.
+
+    Expected format:
+    {
+        "sessions": [
+            {
+                "id": int,
+                "date": "YYYY-MM-DD",
+                "exercises": [
+                    {
+                        "name": str,
+                        "sets": [{"reps": int, "weight": number}]
+                    }
+                ]
+            }
+        ]
+    }
+
+    Returns:
+    - valid data if structure is correct
+    - {"sessions": []} if file is missing, corrupted, or invalid
+    """
     try:
         with file_path.open("r", encoding="utf-8") as file:
             data = json.load(file)
 
             if not isinstance(data, dict):
                 print(f"Warning: format of {file_path.name} is invalid - Starting fresh...")
-                return {}
+                return {"sessions" : []}
             
-            for exercise, entries in data.items():
-                if not isinstance(exercise, str) or not isinstance(entries, list):
-                    print(f"Warning: format of {file_path.name} is invalid - Starting fresh...")
-                    return {}
+            if "sessions" not in data or not isinstance(data["sessions"], list):
+                print(f"Warning: format of {file_path.name} is invalid - Starting fresh...")
+                return {"sessions" : []}
+            
+            for session in data["sessions"]:
+                if not isinstance(session, dict):
+                    return {"sessions" : []}
+                if "id" not in session or "date" not in session or "exercises" not in session:
+                    return {"sessions" : []}
+                if not isinstance(session["exercises"], list):
+                    return {"sessions" : []}
                 
-                for entry in entries:
-                    if not isinstance(entry, dict) or "date" not in entry or "weight" not in entry:
-                        print(f"Warning: format of {file_path.name} is invalid - Starting fresh...")
-                        return {}
-
     except FileNotFoundError:
         print(f"File: {file_path.name} not found. Starting fresh...")
-        data = {}
+        data = {"sessions" : []}
     except json.JSONDecodeError:
         print(f"Warning: contents of {file_path.name} are corrupted. Starting fresh...")
-        data = {}
+        data = {"sessions" : []}
 
     return data
 
