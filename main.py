@@ -1,103 +1,135 @@
 from pathlib import Path
 import sys
 from storage import load_config, set_environment, load_data, save_data
-from logic import add_exercise, log_entry, delete_exercise, summary_lines
+from logic import create_session, delete_session, add_exercise_to_session, parse_weight, parse_positive_int, current_session_lines
 
 
 def run_menu(data: dict, file_path: Path) -> None:
-    """Run the interactive CLI menu for the gym log.
-    Allows the user to add exercises, log weights, view summaries,
-    delete exercises, and save progress to disk.
+    """Run the main CLI menu for the gym log application.
+
+    Allows the user to:
+    - start a new workout session
+    - view workout history (sessions or exercises)
+    - exit and save data
+
+    This function serves as the primary navigation loop for the application.
     """
     while True:
         print("\nGym Log")
         print("-------")
-        print("1) Add Exercise")
-        print("2) Log Exercise Weight")
-        print("3) View Summary")
-        print("4) Delete Exercise")
-        print("5) Exit & Save")
+        print("1) Start New Session")
+        print("2) View History")
+        print("3) Exit & Save")
 
         choice = input("Choice: ").strip()
 
         if choice == '1':
-            exercise = input("Exercise name: ").strip().lower()
-            if not exercise:
-                print("Exercise name cannot be empty.")
-                continue
-            
-            result = add_exercise(data, exercise)
-            if result:
-                save_data(file_path, data)
-                print(f"{exercise} added.")
-            else:
-                print(f"{exercise} already exists.")
+            session = create_session(data)
+            save_data(file_path, data)
+            print(f"New session created. (ID: {session['id']}, Date: {session['date']})")
+            run_session_menu(data, file_path, session)
             
         elif choice == '2':
-            exercise = input("Exercise name: ").strip().lower()
-            if not exercise:
-                print("Exercise name cannot be empty.")
-                continue
-            if exercise not in data:
-                print(f"{exercise} hasn't been added yet.")
-                continue
-
-            try:
-                weight = float(input("Log weight: ").strip())
-            except ValueError:
-                print("Weight value must be a valid number.")
-                continue
-
-            if weight <= 0:
-                print("Weight value must be greater than 0.")
-                continue
-
-            result = log_entry(data, exercise, weight)
-            if result:
-                save_data(file_path, data)
-                print("Good job! New weight logged.")
+            print("View history coming soon.")
 
         elif choice == '3':
-
-            print("\nGym Log Summary")
-            print("---------------")
-            lines = summary_lines(data)
-            if not lines:
-                print("No exercises have been added yet.")
-                continue
-            for line in lines:
-                print(line)
-                print()
-
-        elif choice == '4':
-            exercise = input("Exercise name: ").strip().lower()
-            if not exercise:
-                print("Exercise name cannot be empty.")
-                continue
-
-            confirmation = input("Are you sure? (y/n): ").strip().lower()
-            if confirmation == 'y':
-                result = delete_exercise(data, exercise)
-            elif confirmation == 'n':
-                print("Canceled.")
-                continue
-            else:
-                print("Invalid response.")
-                continue
-
-            if result:
-                save_data(file_path, data)
-                print(f"Deleted: {exercise}")
-            else:
-                print(f"{exercise} not found.")
-
-        elif choice == '5':
             save_data(file_path, data)
             print("Saved. Goodbye!")
             break
 
         else:
-            print("Invalid choice. Menu options are 1, 2, 3, 4, or 5.")
+            print("Invalid choice. Menu options are 1, 2, or 3.")
+
+
+def prompt_for_sets() -> list[dict]:
+    """Prompt the user for completed sets and return them as a list.
+    Each set contains validated reps and weight values.
+    """
+    while True:
+        raw_count = input("How many sets did you complete? ").strip()
+        set_count = parse_positive_int(raw_count)
+        if set_count is None:
+            print("Set count must be a whole number greater than 0.")
+            continue
+        break
+
+    sets = []
+    for i in range(1, set_count + 1):
+        while True:
+            raw_reps = input(f"Set {i} reps: ").strip()
+            reps = parse_positive_int(raw_reps)
+            if reps is None:
+                print("Reps must be a whole number greater than 0.")
+                continue
+            break
+
+        while True:
+            raw_weight = input(f"Set {i} weight: ").strip()
+            weight = parse_weight(raw_weight)
+            if weight is None:
+                print("Weight must be a number greater than 0.")
+                continue
+            break
+
+        sets.append({"reps": reps, "weight": weight})
+
+    return sets
+
+
+def run_session_menu(data: dict, file_path: Path, session: dict) -> None:
+    """Run the active session submenu for logging and reviewing a workout."""
+    while True:
+        print("\nCurrent Session")
+        print("---------------")
+        print("1) Add Exercise")
+        print("2) View Current Session")
+        print("3) Delete Session")
+        print("4) Finish Session")
+
+        choice = input("Choice: ").strip()
+
+        if choice == '1':
+            exercise_name = input("Enter exercise name: ").strip()
+            if add_exercise_to_session(session, exercise_name):
+                sets = prompt_for_sets()
+                session["exercises"][-1]["sets"] = sets
+                save_data(file_path, data)
+                print("Exercise added.")
+
+            else:
+                print("Invalid or duplicate exercise.")
+
+        elif choice == '2':
+            for line in current_session_lines(session):
+                print(line)
+        
+        elif choice == '3':
+            delete_choice = input("Are you sure? (y/n): ").strip().lower()
+            if delete_choice == 'y':
+                delete_session(data, session["id"])
+                save_data(file_path, data)
+                print("Session deleted.")
+                return
+            
+            elif delete_choice == 'n':
+                continue
+            
+            else:
+                 print("Invalid response.")
+                 continue
+
+        elif choice == '4':
+            if not session["exercises"]:
+                delete_session(data, session["id"])
+                save_data(file_path, data)
+                print("Empty session discarded.")
+                return
+
+            save_data(file_path, data)
+            return
+
+        else:
+            print("Invalid choice. Menu options are 1, 2, 3, or 4.")
 
 
 def main() -> None:
