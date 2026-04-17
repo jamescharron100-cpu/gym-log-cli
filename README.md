@@ -1,25 +1,27 @@
-# Gym Log CLI
+# Gym Log CLI (V2)
 
 ## Overview
 
-**Gym Log CLI** is a command-line tool for tracking the most recent working weight used for each exercise. It allows users to quickly record lifts during or after workouts and view progress over time from the terminal.
+**Gym Log CLI** is a command-line application for tracking full workout sessions, including exercises and sets (reps + weight). It allows users to log complete workouts, review current sessions, and explore past training history directly from the terminal.
 
-The application stores workout data in a JSON file so that exercise history persists between runs.
+Workout data is stored in a JSON file, ensuring persistence between runs.
 
-This project was built as part of a structured learning roadmap focused on transitioning from small scripts to modular, production-style programs.
+This project is part of a structured roadmap focused on building real-world, modular applications and evolving them over time.
 
 ---
 
 ## Key Features
 
-- Add new exercises
-- Log the latest working weight for a lift
-- View a summary of all exercises and current weights
-- Automatic saving after every change
-- Delete exercises from the log
-- Configurable data storage location
-- Defensive input validation
-- Clean modular architecture
+- Start and manage workout sessions
+- Add exercises to a session (duplicate prevention)
+- Log multiple sets per exercise (reps + weight)
+- View the current session in a clean, structured format
+- View session history (with exercise counts)
+- View exercise history across all sessions
+- Delete sessions (with automatic cleanup of empty sessions)
+- Defensive input validation for all user inputs
+- Automatic data persistence using JSON
+- Clean modular architecture (main / logic / storage)
 
 ---
 
@@ -28,49 +30,73 @@ This project was built as part of a structured learning roadmap focused on trans
 ```
 Gym Log
 -------
-1) Add Exercise
-2) Log Weight
-3) View Summary
-4) Delete Exercise
-5) Exit & Save
+1) Start New Session
+2) View History
+3) Exit & Save
 ```
 
-Example summary output:
+Session flow example:
 
 ```
-Gym Log Summary
+Current Session
 ---------------
-bench press: 185 lbs
-rdl: 225 lbs
-lat pulldown: 140 lbs
+1) Add Exercise
+2) View Current Session
+3) Delete Session
+4) Finish Session
+```
+
+Example session output:
+
+```
+Session 11 - 2026-04-16
+----------------------
+bench press
+  Set 1: 10 reps @ 185 lbs
+  Set 2: 10 reps @ 175 lbs
+  Set 3: 10 reps @ 165 lbs
+```
+
+Example session history:
+
+```
+Session 11 - 2026-04-16 (1 exercise)
+Session 10 - 2026-04-15 (3 exercises)
+```
+
+Example exercise history:
+
+```
+bench press: logged in 6 sessions
+lat pulldown: logged in 2 sessions
 ```
 
 ---
 
 ## Project Architecture
 
-The program follows a simple layered architecture separating user interaction, business logic, and persistence.
+The program follows a layered architecture separating user interaction, business logic, and persistence.
 
 ```
 gym_log/
 │
-├── main.py        # CLI interface and menu loop
-├── logic.py       # Core exercise and weight manipulation
-├── storage.py     # File management, config loading, persistence
+├── main.py        # CLI interface and menu flow
+├── logic.py       # Core session, exercise, and set logic
+├── storage.py     # File handling and persistence
 ├── config.json    # Configurable data settings
 └── data/
     └── gym_data.json   # Auto-generated data file
 ```
 
 ### main.py
-Handles the interactive command-line interface and user input.
+Handles the command-line interface, menu navigation, and user input.
 
 ### logic.py
-Contains the core business logic including:
-- exercise normalization
-- weight validation
-- logging entries
-- generating summaries
+Contains the core business logic, including:
+- session creation and deletion
+- exercise management
+- set logging (reps + weight)
+- history formatting
 
 ### storage.py
 Responsible for:
@@ -80,43 +106,31 @@ Responsible for:
 
 ---
 
-## Configuration
-
-The `config.json` file controls where the program stores data.
-
-Example:
-
-```
-{
-  "data_file": "gym_data.json",
-  "data_folder": "data"
-}
-```
-
-Fields:
-
-| Key | Description |
-|----|----|
-| data_folder | Directory where workout data is stored |
-| data_file | Name of the JSON file containing exercise data |
-
-If the folder does not exist, the program automatically creates it.
-
----
-
 ## Data Format
 
-Workout data is stored in JSON using a simple dictionary structure:
+Workout data is stored as structured session data:
 
 ```
 {
-  "bench press": 185,
-  "rdl": 225,
-  "lat pulldown": 140
+  "sessions": [
+    {
+      "id": 11,
+      "date": "2026-04-16",
+      "exercises": [
+        {
+          "name": "bench press",
+          "sets": [
+            {"reps": 10, "weight": 185},
+            {"reps": 10, "weight": 175}
+          ]
+        }
+      ]
+    }
+  ]
 }
 ```
 
-Each exercise maps to the most recently logged working weight.
+This structure supports full workout tracking and enables future expansion.
 
 ---
 
@@ -134,27 +148,34 @@ Python 3.9+ is recommended.
 
 ## Design Goals
 
-This project focuses on demonstrating several core software engineering practices:
+This project focuses on demonstrating core software engineering practices:
 
-- Modular program design
-- Separation of concerns
-- Defensive programming
-- Persistent data storage
-- CLI application structure
-
-It serves as a foundational project before moving on to more complex applications.
+- modular program design
+- separation of concerns
+- defensive programming
+- structured data modeling
+- CLI application design
+- iterative project development
 
 ---
 
-## Possible Future Improvements
+## Limitations
 
-Potential future upgrades include:
+- No editing of sessions (yet)
+- CLI-based (not optimized for mobile use)
+- JSON storage (not optimized for large-scale data)
 
-- tracking sets and reps
-- historical lift tracking
-- personal record detection
-- CSV export
-- graphical interface or web dashboard
+---
+
+## Future Improvements
+
+Planned upgrades include:
+
+- SQLite database integration
+- session editing capabilities
+- predefined workout templates
+- improved analytics and progress tracking
+- web application version
 
 ---
 
@@ -168,4 +189,4 @@ This project is provided for educational and portfolio purposes.
 
 James Charron
 
-Built as part of a daily software engineering practice routine focused on becoming job-ready as a developer.
+Built as part of a structured daily software engineering practice routine focused on becoming job-ready.

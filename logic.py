@@ -116,3 +116,50 @@ def current_session_lines(session: dict) -> list[str]:
             lines.append(f"  Set {i}: {reps} reps @ {weight} lbs")
 
     return lines
+
+
+def session_history_lines(data: dict) -> list[str]:
+    """Build readable lines for displaying all past workout sessions."""
+    lines = []
+
+    sessions = data.get("sessions", [])
+    if not sessions:
+        lines.append("No sessions found.")
+        return lines
+
+    for session in reversed(sessions):
+        session_id = session.get("id")
+        session_date = session.get("date", "unknown")
+        exercises = session.get("exercises", [])
+        exercise_count = len(exercises)
+
+        label = "exercise" if exercise_count == 1 else "exercises"
+        lines.append(f"Session {session_id} - {session_date} ({exercise_count} {label})")
+    
+    return lines
+
+
+def exercise_history_lines(data: dict) -> list[str]:
+    """Build readable lines for displaying exercise history across all sessions."""
+    lines = []
+    sessions = data.get("sessions", [])
+
+    exercise_counts = {}
+    for session in sessions:
+        exercises = session.get("exercises", [])
+        for exercise in exercises:
+            name = exercise.get("name")
+            if not isinstance(name, str) or not name:
+                continue
+            exercise_counts[name] = exercise_counts.get(name, 0) + 1
+
+    if not exercise_counts:
+        lines.append("No exercise history found.")
+        return lines
+
+    for name in sorted(exercise_counts.keys()):
+        count = exercise_counts[name]
+        label = "session" if count == 1 else "sessions"
+        lines.append(f"{name}: logged in {count} {label}")
+
+    return lines

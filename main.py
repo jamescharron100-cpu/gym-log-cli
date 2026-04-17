@@ -1,7 +1,7 @@
 from pathlib import Path
 import sys
 from storage import load_config, set_environment, load_data, save_data
-from logic import create_session, delete_session, add_exercise_to_session, parse_weight, parse_positive_int, current_session_lines
+from logic import create_session, delete_session, add_exercise_to_session, parse_weight, parse_positive_int, current_session_lines, session_history_lines, exercise_history_lines
 
 
 def run_menu(data: dict, file_path: Path) -> None:
@@ -30,7 +30,7 @@ def run_menu(data: dict, file_path: Path) -> None:
             run_session_menu(data, file_path, session)
             
         elif choice == '2':
-            print("View history coming soon.")
+            run_history_menu(data)
 
         elif choice == '3':
             save_data(file_path, data)
@@ -130,6 +130,32 @@ def run_session_menu(data: dict, file_path: Path, session: dict) -> None:
 
         else:
             print("Invalid choice. Menu options are 1, 2, 3, or 4.")
+
+
+def run_history_menu(data: dict) -> None:
+    """Run the history submenu for viewing past workout data."""
+    while True:
+        print("\nHistory")
+        print("-------")
+        print("1) View Session History")
+        print("2) View Exercise History")
+        print("3) Back")
+
+        choice = input("Choice: ").strip()
+
+        if choice == '1':
+            for line in session_history_lines(data):
+                print(line)
+
+        elif choice == '2':
+            for line in exercise_history_lines(data):
+                print(line)
+
+        elif choice == '3':
+            return
+        
+        else:
+            print("Invalid choice. Menu options are 1, 2, or 3.")
 
 
 def main() -> None:
