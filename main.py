@@ -1,10 +1,10 @@
 from pathlib import Path
-import sys
-from storage import load_config, set_environment, load_data, save_data
-from logic import create_session, delete_session, add_exercise_to_session, parse_weight, parse_positive_int, current_session_lines, session_history_lines, exercise_history_lines
+import sqlite3
+from logic import parse_weight, parse_positive_int, normalize_weight
+from db import init_db, start_session, add_exercise, add_set, get_sessions, get_exercises_for_session, get_sets_for_exercise, delete_session, get_exercise_history
 
 
-def run_menu(data: dict, file_path: Path) -> None:
+def run_menu(conn) -> None:
     """Run the main CLI menu for the gym log application.
 
     Allows the user to:
@@ -24,17 +24,15 @@ def run_menu(data: dict, file_path: Path) -> None:
         choice = input("Choice: ").strip()
 
         if choice == '1':
-            session = create_session(data)
-            save_data(file_path, data)
-            print(f"New session created. (ID: {session['id']}, Date: {session['date']})")
-            run_session_menu(data, file_path, session)
+            session_id = start_session(conn)
+            print(f"New session created. (ID: {session_id})")
+            run_session_menu(conn, session_id)
             
         elif choice == '2':
-            run_history_menu(data)
+            run_history_menu(conn)
 
         elif choice == '3':
-            save_data(file_path, data)
-            print("Saved. Goodbye!")
+            print("Goodbye!")
             break
 
         else:
@@ -56,18 +54,18 @@ def prompt_for_sets() -> list[dict]:
     sets = []
     for i in range(1, set_count + 1):
         while True:
-            raw_reps = input(f"Set {i} reps: ").strip()
-            reps = parse_positive_int(raw_reps)
-            if reps is None:
-                print("Reps must be a whole number greater than 0.")
-                continue
-            break
-
-        while True:
             raw_weight = input(f"Set {i} weight: ").strip()
             weight = parse_weight(raw_weight)
             if weight is None:
                 print("Weight must be a number greater than 0.")
+                continue
+            break
+
+        while True:
+            raw_reps = input(f"Set {i} reps: ").strip()
+            reps = parse_positive_int(raw_reps)
+            if reps is None:
+                print("Reps must be a whole number greater than 0.")
                 continue
             break
 
@@ -76,7 +74,7 @@ def prompt_for_sets() -> list[dict]:
     return sets
 
 
-def run_session_menu(data: dict, file_path: Path, session: dict) -> None:
+def run_session_menu(conn, session_id: int) -> None:
     """Run the active session submenu for logging and reviewing a workout."""
     while True:
         print("\nCurrent Session")
@@ -89,50 +87,83 @@ def run_session_menu(data: dict, file_path: Path, session: dict) -> None:
         choice = input("Choice: ").strip()
 
         if choice == '1':
-            exercise_name = input("Enter exercise name: ").strip()
-            if add_exercise_to_session(session, exercise_name):
+            name = input("Enter exercise name: ").strip().lower()
+            if not name:
+                print("Exercise name cannot be empty.")
+            else:
+                existing_exercises = get_exercises_for_session(conn, session_id)
+                duplicate = False
+                for exercise in existing_exercises:
+                    if exercise[1] == name:
+                        duplicate = True
+                        break
+
+                if duplicate:
+                    print("Invalid or duplicate exercise.")
+                    continue
+
+                exercise_id = add_exercise(conn, session_id, name)
+
                 sets = prompt_for_sets()
-                session["exercises"][-1]["sets"] = sets
-                save_data(file_path, data)
+                for s in sets:
+                    add_set(conn, exercise_id, s["reps"], s["weight"])
+
                 print("Exercise added.")
 
-            else:
-                print("Invalid or duplicate exercise.")
-
         elif choice == '2':
-            for line in current_session_lines(session):
-                print(line)
+            sessions = get_sessions(conn)
+            session_row = None
+            for row in sessions:
+                if row[0] == session_id:
+                    session_row = row
+                    break
+            
+            if session_row is None:
+                print("Session not found.")
+                continue
+            
+            print(f"Session {session_row[0]} - {session_row[1]}")
+            exercises = get_exercises_for_session(conn, session_id)
+            if not exercises:
+                print("No exercises logged in this session yet.")
+            else:
+                for exercise in exercises:
+                    exercise_id = exercise[0]
+                    exercise_name = exercise[1]
+                    print(exercise_name)
+
+                    sets = get_sets_for_exercise(conn, exercise_id)
+                    for i, set_entry in enumerate(sets, start=1):
+                        reps = set_entry[0]
+                        weight = normalize_weight(set_entry[1])
+                        print(f"  Set {i}: {weight} lbs x {reps} reps")
         
         elif choice == '3':
             delete_choice = input("Are you sure? (y/n): ").strip().lower()
             if delete_choice == 'y':
-                delete_session(data, session["id"])
-                save_data(file_path, data)
-                print("Session deleted.")
+                if delete_session(conn, session_id):
+                    print("Session deleted.")
+                else:
+                    print("Session not found.")
                 return
-            
             elif delete_choice == 'n':
                 continue
-            
             else:
-                 print("Invalid response.")
-                 continue
+                print("Invalid response.")
+                continue
 
         elif choice == '4':
-            if not session["exercises"]:
-                delete_session(data, session["id"])
-                save_data(file_path, data)
+            exercises = get_exercises_for_session(conn, session_id)
+            if not exercises:
+                delete_session(conn, session_id)
                 print("Empty session discarded.")
-                return
-
-            save_data(file_path, data)
             return
 
         else:
             print("Invalid choice. Menu options are 1, 2, 3, or 4.")
 
 
-def run_history_menu(data: dict) -> None:
+def run_history_menu(conn) -> None:
     """Run the history submenu for viewing past workout data."""
     while True:
         print("\nHistory")
@@ -144,12 +175,28 @@ def run_history_menu(data: dict) -> None:
         choice = input("Choice: ").strip()
 
         if choice == '1':
-            for line in session_history_lines(data):
-                print(line)
+            sessions = get_sessions(conn)
+            if not sessions:
+                print("No sessions found.")
+            else:
+                for row in reversed(sessions):
+                    session_id = row[0]
+                    session_date = row[1]
+                    exercises = get_exercises_for_session(conn, session_id)
+                    exercise_count = len(exercises)
+                    label = "exercise" if exercise_count == 1 else "exercises"
+                    print(f"Session {session_id} - {session_date} ({exercise_count} {label})")
 
         elif choice == '2':
-            for line in exercise_history_lines(data):
-                print(line)
+            history = get_exercise_history(conn)
+            if not history:
+                print("No exercise history found.")
+            else:
+                for row in history:
+                    name = row[0]
+                    count = row[1]
+                    label = "session" if count == 1 else "sessions"
+                    print(f"{name}: logged in {count} {label}")
 
         elif choice == '3':
             return
@@ -160,28 +207,16 @@ def run_history_menu(data: dict) -> None:
 
 def main() -> None:
     """Program entry point.
-    Loads configuration, prepares the data environment,
-    loads existing gym data, and initiates the CLI menu.
+    Opens the SQLite database connection and starts the CLI menu.
     """
     base_dir = Path(__file__).resolve().parent
-    config_path = base_dir / "config.json"
-
-    config = load_config(config_path)
-    if config is None:
-        sys.exit("Config failed to load.")
-    data_folder = config.get("data_folder")
-    data_file = config.get("data_file")
-
-    if not data_folder or not data_file:
-        print("Error: config.json must contain 'data_folder' and 'data_file'.")
-        sys.exit(1)
-    if not isinstance(data_folder, str) or not isinstance(data_file, str):
-        print("Error: 'data_folder' and 'data_file' must both be strings")
-        sys.exit(1)
-
-    file_path = set_environment(data_folder, data_file)
-    data = load_data(file_path)
-    run_menu(data, file_path)
+    db_path = base_dir / "gym.db"
+    conn = sqlite3.connect(db_path)
+    init_db(conn)
+    try:
+        run_menu(conn)
+    finally:
+        conn.close()
 
 
 if __name__ == "__main__":

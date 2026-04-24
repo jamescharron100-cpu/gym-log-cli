@@ -1,27 +1,12 @@
-# Gym Log CLI (V2)
+# Gym Log CLI (V3)
 
 ## Overview
 
-**Gym Log CLI** is a command-line application for tracking full workout sessions, including exercises and sets (reps + weight). It allows users to log complete workouts, review current sessions, and explore past training history directly from the terminal.
+**Gym Log CLI** is a command-line application for tracking full workout sessions using a SQLite database. It allows users to log exercises and sets (weight × reps), review current sessions, and explore past training history directly from the terminal.
 
-Workout data is stored in a JSON file, ensuring persistence between runs.
+This version replaces JSON storage with SQLite, providing a more scalable and structured data model.
 
-This project is part of a structured roadmap focused on building real-world, modular applications and evolving them over time.
-
----
-
-## Key Features
-
-- Start and manage workout sessions
-- Add exercises to a session (duplicate prevention)
-- Log multiple sets per exercise (reps + weight)
-- View the current session in a clean, structured format
-- View session history (with exercise counts)
-- View exercise history across all sessions
-- Delete sessions (with automatic cleanup of empty sessions)
-- Defensive input validation for all user inputs
-- Automatic data persistence using JSON
-- Clean modular architecture (main / logic / storage)
+SQLite was chosen to introduce relational data modeling and improve scalability compared to flat JSON storage.
 
 ---
 
@@ -35,7 +20,7 @@ Gym Log
 3) Exit & Save
 ```
 
-Session flow example:
+Session flow:
 
 ```
 Current Session
@@ -49,139 +34,143 @@ Current Session
 Example session output:
 
 ```
-Session 11 - 2026-04-16
-----------------------
+Session 1 - 2026-04-24
 bench press
-  Set 1: 10 reps @ 185 lbs
-  Set 2: 10 reps @ 175 lbs
-  Set 3: 10 reps @ 165 lbs
+  Set 1: 185 lbs x 10 reps
+  Set 2: 225 lbs x 6 reps
+  Set 3: 205 lbs x 8 reps
+tricep pushdown
+  Set 1: 62.5 lbs x 10 reps
+  Set 2: 67.5 lbs x 8 reps
 ```
 
-Example session history:
+---
+## Key Features
 
-```
-Session 11 - 2026-04-16 (1 exercise)
-Session 10 - 2026-04-15 (3 exercises)
-```
-
-Example exercise history:
-
-```
-bench press: logged in 6 sessions
-lat pulldown: logged in 2 sessions
-```
+- Start and manage workout sessions
+- Add exercises to a session (duplicate prevention)
+- Log multiple sets per exercise (weight × reps)
+- View the current session with full set breakdown
+- View session history (with exercise counts)
+- View exercise history across all sessions
+- Delete sessions (with full cleanup of related data)
+- Automatic cleanup of empty sessions
+- Defensive input validation for all user inputs
+- Persistent storage via SQLite
+- Clean modular architecture (main / logic / db)
 
 ---
 
 ## Project Architecture
 
-The program follows a layered architecture separating user interaction, business logic, and persistence.
-
 ```
 gym_log/
 │
-├── main.py        # CLI interface and menu flow
-├── logic.py       # Core session, exercise, and set logic
-├── storage.py     # File handling and persistence
-├── config.json    # Configurable data settings
-└── data/
-    └── gym_data.json   # Auto-generated data file
+├── main.py   # CLI interface and menu flow
+├── db.py     # SQLite database layer (queries, inserts, deletes)
+├── logic.py  # Input validation and formatting helpers
+└── gym.db    # SQLite database file (created at runtime, not tracked in repo)
 ```
 
 ### main.py
-Handles the command-line interface, menu navigation, and user input.
+Handles user interaction, menu navigation, and overall program flow.
+
+### db.py
+Responsible for all database operations, including:
+- creating tables
+- inserting sessions, exercises, and sets
+- querying session and exercise history
+- deleting sessions and related data
 
 ### logic.py
-Contains the core business logic, including:
-- session creation and deletion
-- exercise management
-- set logging (reps + weight)
-- history formatting
-
-### storage.py
-Responsible for:
-- loading configuration
-- ensuring data directories exist
-- reading/writing JSON safely
+Contains helper functions for:
+- input validation
+- parsing numbers
+- formatting weight output
 
 ---
 
-## Data Format
+## Technologies Used
 
-Workout data is stored as structured session data:
+- Python 3
+- SQLite
+
+---
+
+## Database Schema
+
+The application uses three related tables:
+
+### sessions
+| id | date |
+
+### exercises
+| id | session_id | name |
+
+### sets
+| id | exercise_id | reps | weight |
+
+Relationships:
 
 ```
-{
-  "sessions": [
-    {
-      "id": 11,
-      "date": "2026-04-16",
-      "exercises": [
-        {
-          "name": "bench press",
-          "sets": [
-            {"reps": 10, "weight": 185},
-            {"reps": 10, "weight": 175}
-          ]
-        }
-      ]
-    }
-  ]
-}
+session → exercises → sets
 ```
-
-This structure supports full workout tracking and enables future expansion.
 
 ---
 
 ## Running the Program
 
-Navigate to the project directory and run:
+From the project directory:
 
 ```
 python3 main.py
 ```
 
-Python 3.9+ is recommended.
+Python 3.9+ recommended.
 
 ---
 
 ## Design Goals
 
-This project focuses on demonstrating core software engineering practices:
+This project demonstrates:
 
 - modular program design
 - separation of concerns
-- defensive programming
-- structured data modeling
-- CLI application design
-- iterative project development
+- relational data modeling with SQLite
+- CLI application architecture
+- iterative software development
+
+---
+
+## Project Evolution
+
+- V1 → basic CLI
+- V2 → JSON-based persistence
+- V3 → SQLite relational model
 
 ---
 
 ## Limitations
 
-- No editing of sessions (yet)
-- CLI-based (not optimized for mobile use)
-- JSON storage (not optimized for large-scale data)
+- No editing of sessions or sets
+- CLI-based interface
+- No user authentication or multi-user support
 
 ---
 
 ## Future Improvements
 
-Planned upgrades include:
-
-- SQLite database integration
-- session editing capabilities
-- predefined workout templates
-- improved analytics and progress tracking
-- web application version
+- Edit existing sessions and sets
+- Add exercise presets / templates
+- Progress tracking and analytics
+- Export data (CSV / JSON)
+- Web or GUI version
 
 ---
 
 ## License
 
-This project is provided for educational and portfolio purposes.
+This project was created for educational and portfolio purposes.
 
 ---
 

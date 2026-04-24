@@ -2,8 +2,12 @@
 __pycache__/
 *.pyc
 
-# Local workout data
-data/gym_data.json
+# SQLite database (local only)
+gym.db
+
+# Old JSON/data artifacts (deprecated)
+data/
+config.json
 
 # macOS junk
 .DS_Store
